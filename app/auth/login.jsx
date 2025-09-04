@@ -10,10 +10,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
+  Alert,
 } from "react-native";
 import { AntDesign, Feather } from "@expo/vector-icons";
 import Checkbox from "expo-checkbox";
 import { useRouter } from "expo-router";
+
+import { mockLogin } from "../../services/mockAuth"; 
 
 function Field({ placeholder, value, onChangeText, secureTextEntry, leftIcon, right, keyboardType }) {
   return (
@@ -65,13 +68,30 @@ export default function LoginScreen() {
   const [pw, setPw] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [remember, setRemember] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  function onLogin() {
-    console.log("Login with:", { email, pw, remember });
+  async function onLogin() {
+    if (!email || !pw) {
+      Alert.alert("Ups", "Ingresa tu correo y contraseña");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await mockLogin({ email, password: pw, remember });
+      console.log("Login ok:", res);
+      Alert.alert("Bienvenido", res.user.email);
+      // Ajusta la ruta según tu app: "/", "/home", "/(tabs)"
+      router.replace("/main"); 
+    } catch (err) {
+      console.error("Login error:", err);
+      Alert.alert("Error", err.message || "Credenciales inválidas");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white pt-10">
       <StatusBar barStyle={Platform.OS === "ios" ? "dark-content" : "dark-content"} />
       <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView
@@ -90,7 +110,7 @@ export default function LoginScreen() {
               <Text className="text-3xl font-bold tracking-tight">Ledgerly</Text>
             </View>
 
-            <Text className="text-4xl font-bold mb-2">Sign In</Text>
+            <Text className="text-4xl font-bold mb-2">Login</Text>
             <Text className="mb-6 text-lg text-zinc-500">Let’s keep it quick</Text>
 
             {/* Fields */}
@@ -120,26 +140,26 @@ export default function LoginScreen() {
                 <Checkbox value={remember} onValueChange={setRemember} color={remember ? "#000" : undefined} />
                 <Text className="text-sm text-zinc-700">Remember me</Text>
               </View>
-              <Pressable>
+              <Pressable onPress={() => Alert.alert("Forgot password", "Flujo mock no implementado")}>
                 <Text className="text-sm font-semibold text-zinc-900">Forgot password?</Text>
               </Pressable>
             </View>
 
             {/* CTA */}
-            <Button onPress={onLogin}>
-              <Text className="font-semibold text-white text-lg">Sign In</Text>
+            <Button onPress={onLogin} className={loading ? "opacity-70" : ""} disabled={loading}>
+              <Text className="font-semibold text-white text-lg">{loading ? "Signing in..." : "Sign In"}</Text>
             </Button>
 
             {/* Social */}
             <Separator />
             <View className="gap-3">
-              <Button variant="outline">
+              <Button variant="outline" onPress={() => Alert.alert("Google", "Mock Google login")}>
                 <View className="flex-row items-center justify-center gap-3">
                   <AntDesign name="google" size={20} color="#DB4437" />
                   <Text className="font-medium text-zinc-900 text-lg">Continuar con Google</Text>
                 </View>
               </Button>
-              <Button variant="outline">
+              <Button variant="outline" onPress={() => Alert.alert("Apple", "Mock Apple login")}>
                 <View className="flex-row items-center justify-center gap-3">
                   <AntDesign name="apple1" size={20} color="#000" />
                   <Text className="font-medium text-zinc-900 text-lg">Continuar con Apple</Text>
