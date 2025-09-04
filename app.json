@@ -1,5 +1,6 @@
 {
   "expo": {
+    "scheme": "curso",
     "name": "curso",
     "slug": "curso",
     "version": "1.0.0",
