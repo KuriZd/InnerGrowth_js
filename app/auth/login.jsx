@@ -10,57 +10,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
-  Alert,
 } from "react-native";
 import { AntDesign, Feather } from "@expo/vector-icons";
 import Checkbox from "expo-checkbox";
 import { useRouter } from "expo-router";
-
-import { mockLogin } from "../../services/mockAuth"; 
-
-function Field({ placeholder, value, onChangeText, secureTextEntry, leftIcon, right, keyboardType }) {
-  return (
-    <View className="h-12 w-full flex-row items-center rounded-lg border border-zinc-300 bg-white px-3 mb-5">
-      <View className="mr-2">{leftIcon}</View>
-      <TextInput
-        className="flex-1 text-lg text-zinc-900"
-        placeholder={placeholder}
-        placeholderTextColor="#9CA3AF"
-        value={value}
-        onChangeText={onChangeText}
-        secureTextEntry={secureTextEntry}
-        keyboardType={keyboardType}
-        autoCapitalize="none"
-      />
-      {right ? <View className="ml-2">{right}</View> : null}
-    </View>
-  );
-}
-
-function Button({ children, variant = "primary", className = "", ...props }) {
-  const styles = {
-    primary: "bg-black active:bg-zinc-900",
-    outline: "border border-zinc-300 bg-white",
-  };
-  return (
-    <Pressable
-      className={`h-12 w-full rounded-lg items-center justify-center ${styles[variant]} ${className}`}
-      {...props}
-    >
-      {children}
-    </Pressable>
-  );
-}
-
-function Separator({ label = "or" }) {
-  return (
-    <View className="my-6 flex-row items-center gap-3">
-      <View className="h-px flex-1 bg-zinc-200" />
-      <Text className="text-sm text-zinc-500">{label}</Text>
-      <View className="h-px flex-1 bg-zinc-200" />
-    </View>
-  );
-}
+import { mockLogin } from "../../services/mockAuth";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -70,33 +24,110 @@ export default function LoginScreen() {
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // estados de error
+  const [errors, setErrors] = useState({
+    email: "",
+    pw: "",
+    general: "",
+  });
+
   async function onLogin() {
-    if (!email || !pw) {
-      Alert.alert("Ups", "Ingresa tu correo y contraseña");
+    // reset de errores
+    setErrors({ email: "", pw: "", general: "" });
+
+    let hasError = false;
+    const newErr = { email: "", pw: "", general: "" };
+
+    // validación de email
+    if (!email) {
+      newErr.email = "Ingresa tu email";
+      hasError = true;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      newErr.email = "Dirección de email inválida";
+      hasError = true;
+    }
+    // validación de contraseña
+    if (!pw) {
+      newErr.pw = "Ingresa tu contraseña";
+      hasError = true;
+    }
+
+    if (hasError) {
+      setErrors(newErr);
       return;
     }
+
     setLoading(true);
     try {
-      const res = await mockLogin({ email, password: pw, remember });
-      console.log("Login ok:", res);
-      Alert.alert("Bienvenido", res.user.email);
-      // Ajusta la ruta según tu app: "/", "/home", "/(tabs)"
-      router.replace("/main"); 
+      await mockLogin({ email, password: pw, remember });
+      router.replace("/main");
     } catch (err) {
-      console.error("Login error:", err);
-      Alert.alert("Error", err.message || "Credenciales inválidas");
+      setErrors({
+        email: "",
+        pw: "",
+        general: "Contraseña o dirección de email inválida",
+      });
     } finally {
       setLoading(false);
     }
   }
 
+  // helper para renderizar un campo
+  function renderField({
+    placeholder,
+    value,
+    onChange,
+    secure,
+    leftIcon,
+    rightNode,
+    keyboardType,
+    errorMsg,
+  }) {
+    const hasError = !!errorMsg;
+    return (
+      <View className="w-full mb-2">
+        <View
+          className={`
+            h-12 w-full flex-row items-center rounded-lg px-3
+            ${hasError ? "border border-red-500" : "border border-zinc-300"}
+            bg-white
+          `}
+        >
+          <View className="mr-2">{leftIcon}</View>
+          <TextInput
+            className="flex-1 text-lg text-zinc-900"
+            placeholder={placeholder}
+            placeholderTextColor="#9CA3AF"
+            value={value}
+            onChangeText={onChange}
+            secureTextEntry={secure}
+            keyboardType={keyboardType}
+            autoCapitalize="none"
+          />
+          {rightNode && <View className="ml-2">{rightNode}</View>}
+        </View>
+        {hasError && (
+          <Text className="mt-1 text-sm text-red-600">{errorMsg}</Text>
+        )}
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-white pt-10">
-      <StatusBar barStyle={Platform.OS === "ios" ? "dark-content" : "dark-content"} />
-      <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <StatusBar barStyle="dark-content" />
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
         <ScrollView
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 28 }}
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingHorizontal: 20,
+            paddingTop: 20,
+            paddingBottom: 28,
+          }}
         >
           <View className="flex-1">
             {/* Header */}
@@ -111,67 +142,121 @@ export default function LoginScreen() {
             </View>
 
             <Text className="text-4xl font-bold mb-2">Login</Text>
-            <Text className="mb-6 text-lg text-zinc-500">Let’s keep it quick</Text>
+            <Text className="mb-6 text-lg text-zinc-500">
+              Let’s keep it quick
+            </Text>
 
-            {/* Fields */}
-            <Field
-              placeholder="Email Address"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              leftIcon={<AntDesign name="mail" size={18} color="#71717A" />}
-            />
-            <Field
-              placeholder="Password"
-              value={pw}
-              onChangeText={setPw}
-              secureTextEntry={!showPw}
-              leftIcon={<Feather name="lock" size={18} color="#71717A" />}
-              right={
+            {/* Mensaje general */}
+            {errors.general ? (
+              <View className="mb-4 px-3 py-2 bg-red-100 border border-red-400 rounded">
+                <Text className="text-red-700">{errors.general}</Text>
+              </View>
+            ) : null}
+
+            {/* Campos */}
+            {renderField({
+              placeholder: "Email Address",
+              value: email,
+              onChange: setEmail,
+              secure: false,
+              leftIcon: <AntDesign name="mail" size={18} color="#71717A" />,
+              keyboardType: "email-address",
+              errorMsg: errors.email,
+            })}
+
+            {renderField({
+              placeholder: "Password",
+              value: pw,
+              onChange: setPw,
+              secure: !showPw,
+              leftIcon: <Feather name="lock" size={18} color="#71717A" />,
+              rightNode: (
                 <Pressable onPress={() => setShowPw((s) => !s)}>
-                  <Feather name={showPw ? "eye-off" : "eye"} size={18} color="#71717A" />
+                  <Feather
+                    name={showPw ? "eye-off" : "eye"}
+                    size={18}
+                    color="#71717A"
+                  />
                 </Pressable>
-              }
-            />
+              ),
+              errorMsg: errors.pw,
+            })}
 
             {/* Remember & Forgot */}
             <View className="mb-6 flex-row items-center justify-between">
               <View className="flex-row items-center gap-2">
-                <Checkbox value={remember} onValueChange={setRemember} color={remember ? "#000" : undefined} />
+                <Checkbox
+                  value={remember}
+                  onValueChange={setRemember}
+                  color={remember ? "#000" : undefined}
+                />
                 <Text className="text-sm text-zinc-700">Remember me</Text>
               </View>
-              <Pressable onPress={() => Alert.alert("Forgot password", "Flujo mock no implementado")}>
-                <Text className="text-sm font-semibold text-zinc-900">Forgot password?</Text>
+              <Pressable
+                onPress={() =>
+                  Alert.alert("Forgot password", "Flujo mock no implementado")
+                }
+              >
+                <Text className="text-sm font-semibold text-zinc-900">
+                  Forgot password?
+                </Text>
               </Pressable>
             </View>
 
-            {/* CTA */}
-            <Button onPress={onLogin} className={loading ? "opacity-70" : ""} disabled={loading}>
-              <Text className="font-semibold text-white text-lg">{loading ? "Signing in..." : "Sign In"}</Text>
-            </Button>
+            {/* Botón */}
+            <Pressable
+              className={`h-12 w-full rounded-lg items-center justify-center bg-black active:bg-zinc-900 ${
+                loading ? "opacity-70" : ""
+              }`}
+              onPress={onLogin}
+              disabled={loading}
+            >
+              <Text className="font-semibold text-white text-lg">
+                {loading ? "Signing in..." : "Sign In"}
+              </Text>
+            </Pressable>
+
+            {/* Separator */}
+            <View className="my-6 flex-row items-center gap-3">
+              <View className="h-px flex-1 bg-zinc-200" />
+              <Text className="text-sm text-zinc-500">or</Text>
+              <View className="h-px flex-1 bg-zinc-200" />
+            </View>
 
             {/* Social */}
-            <Separator />
             <View className="gap-3">
-              <Button variant="outline" onPress={() => Alert.alert("Google", "Mock Google login")}>
+              <Pressable
+                className="h-12 w-full rounded-lg border border-zinc-300 bg-white items-center justify-center"
+                onPress={() => Alert.alert("Google", "Mock Google login")}
+              >
                 <View className="flex-row items-center justify-center gap-3">
                   <AntDesign name="google" size={20} color="#DB4437" />
-                  <Text className="font-medium text-zinc-900 text-lg">Continuar con Google</Text>
+                  <Text className="font-medium text-zinc-900 text-lg">
+                    Continuar con Google
+                  </Text>
                 </View>
-              </Button>
-              <Button variant="outline" onPress={() => Alert.alert("Apple", "Mock Apple login")}>
+              </Pressable>
+              <Pressable
+                className="h-12 w-full rounded-lg border border-zinc-300 bg-white items-center justify-center"
+                onPress={() => Alert.alert("Apple", "Mock Apple login")}
+              >
                 <View className="flex-row items-center justify-center gap-3">
                   <AntDesign name="apple1" size={20} color="#000" />
-                  <Text className="font-medium text-zinc-900 text-lg">Continuar con Apple</Text>
+                  <Text className="font-medium text-zinc-900 text-lg">
+                    Continuar con Apple
+                  </Text>
                 </View>
-              </Button>
+              </Pressable>
             </View>
 
             {/* Footer */}
             <View className="mt-8">
-              <Text className="text-center text-sm text-zinc-700 text-base">
+              <Text className="text-center text-base text-zinc-700">
                 Don’t have an account?{" "}
-                <Text className="font-bold" onPress={() => router.push("/auth/signup")}>
+                <Text
+                  className="font-bold"
+                  onPress={() => router.push("/auth/signup")}
+                >
                   Sign Up
                 </Text>
               </Text>
