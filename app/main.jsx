@@ -1,20 +1,54 @@
-// app/home.jsx (o tu pantalla)
-import React, { useState } from "react";
+// app/home.jsx
+import React, { useMemo, useState } from "react";
 import { SafeAreaView, View, Text, Pressable, Image } from "react-native";
 import { Feather, AntDesign } from "@expo/vector-icons";
-import DayCalendar from "../components/calendar"; // ajusta el path
+import DayCalendar from "../components/calendar";
+import BottomNav from "../components/BottomNav";
+
+// util: normaliza eventos a objetos {type,label}
+function normalizeEvents(raw) {
+  const out = {};
+  for (const k in raw) {
+    const arr = raw[k] || [];
+    out[k] = arr.map((e) =>
+      typeof e === "string" ? { type: "normal", label: e } : e
+    );
+  }
+  return out;
+}
 
 export default function HomeScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [tab, setTab] = useState("home");
+
+  const rawEvents = useMemo(
+    () => ({
+      "2025-09-05": ["Reunión"],                          // string -> normal
+      "2025-09-06": ["Examen", "Cumpleaños"],             // string/string
+      "2025-09-08": [{ type: "important", label: "Entrega" }], // objeto
+    }),
+    []
+  );
+
+  const events = useMemo(() => normalizeEvents(rawEvents), [rawEvents]);
+
+  const navItems = [
+    { key: "profile", label: "Profile", icon: "user",        href: "/profile" },
+    { key: "todo",    label: "To Do",   icon: "check-square",href: "/todo" },
+    { key: "home",    label: "Home",    icon: "home",        href: "/main" },
+    { key: "break",   label: "Break",   icon: "coffee",      href: "/break" },
+    { key: "config",  label: "Config",  icon: "settings",    href: "/settings" },
+  ];
 
   return (
     <SafeAreaView className="flex-1 bg-white">
-      {/* Header mejorado */}
+      {/* Header */}
       <View className="flex-row items-center justify-between px-5 pt-6">
         <Pressable className="active:opacity-80">
           <Image
             source={{
-              uri: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=764&auto=format&fit=crop&ixlib=rb-4.1.0",
+              uri:
+                "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=764&auto=format&fit=crop&ixlib=rb-4.1.0",
             }}
             className="h-12 w-12 rounded-full border-2 border-blue-400 shadow-sm"
           />
@@ -24,31 +58,44 @@ export default function HomeScreen() {
         </Pressable>
       </View>
 
-      {/* Calendario (centrado en hoy, scrollable) */}
+      {/* Calendario */}
       <DayCalendar
+        // ✅ conecta con tu estado
         selectedDate={selectedDate}
         onChange={setSelectedDate}
-        daysBefore={180}
-        daysAfter={180}
-        locale="en" // o "es"
+        locale="es"
+        // ✅ ya normalizado a {type,label}
+        events={events}
+        // ✅ colores por tipo
+        eventColorMap={{
+          important: "#ef4444", // rojo
+          normal: "#10b981",    // verde
+          reminder: "#3b82f6",  // azul
+          other: "#a855f7",     // violeta
+        }}
+        // opcional: mostrar hasta 3 marcadores
+        maxMarkers={3}
       />
 
-      {/* Ejemplo de contenido dependiente del día */}
+      {/* Contenido */}
       <View className="flex-1 items-center justify-center px-6">
         <Text className="text-base text-zinc-700">
           Selected: {selectedDate.toDateString()}
         </Text>
       </View>
 
+      {/* FAB */}
       <Pressable
-        className="absolute bottom-24 right-6 h-14 w-14 rounded-full bg-blue-500 items-center justify-center shadow-lg active:bg-blue-600"
-        onPress={() => {
-          // acción: crear entrada / abrir modal / navegar
-        }}
+        className="absolute right-6 h-14 w-14 rounded-full bg-blue-500 items-center justify-center shadow-lg active:bg-blue-600"
+        style={{ bottom: 88 }}
+        onPress={() => {}}
         accessibilityLabel="Add new"
       >
         <AntDesign name="plus" size={28} color="#fff" />
       </Pressable>
+
+      {/* Barra inferior */}
+      <BottomNav items={navItems} activeKey={tab} onChange={setTab} />
     </SafeAreaView>
   );
 }
