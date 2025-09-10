@@ -14,75 +14,8 @@ import {
 } from "react-native";
 import { AntDesign, Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { mockSignup } from "../../services/mockAuth"; 
+import { mockSignup } from "../../services/mockAuth";
 
-// ---------- UI PRIMITIVOS ----------
-function Field({
-  label,
-  placeholder,
-  value,
-  onChangeText,
-  leftIcon,
-  right,
-  secureTextEntry,
-  keyboardType = "default",
-  error,
-}) {
-  return (
-    <View className="mb-5">
-      {label ? <Text className="mb-2 text-sm font-medium text-zinc-700">{label}</Text> : null}
-      <View
-        className={`h-12 w-full flex-row items-center rounded-lg border px-3 ${
-          error ? "border-red-500" : "border-zinc-300"
-        } bg-white`}
-      >
-        <View className="w-6 items-center mr-2">{leftIcon}</View>
-        <TextInput
-          className="flex-1 text-base text-zinc-900"
-          placeholder={placeholder}
-          placeholderTextColor="#9CA3AF"
-          value={value}
-          onChangeText={onChangeText}
-          secureTextEntry={secureTextEntry}
-          keyboardType={keyboardType}
-          autoCapitalize="none"
-          autoCorrect={false}
-          accessibilityLabel={label || placeholder}
-          textContentType={keyboardType === "email-address" ? "emailAddress" : "oneTimeCode"}
-        />
-        {right ? <View className="ml-2">{right}</View> : null}
-      </View>
-      {error ? <Text className="mt-1 text-xs text-red-600">{error}</Text> : null}
-    </View>
-  );
-}
-
-function Button({ variant = "primary", children, className = "", ...props }) {
-  const styles = {
-    primary: "bg-black active:bg-zinc-900",
-    outline: "border border-zinc-300 bg-white",
-  };
-  return (
-    <Pressable
-      className={`h-12 w-full rounded-lg items-center justify-center ${styles[variant]} ${className}`}
-      {...props}
-    >
-      {children}
-    </Pressable>
-  );
-}
-
-function Separator({ label = "or" }) {
-  return (
-    <View className="my-6 flex-row items-center gap-3">
-      <View className="h-px flex-1 bg-zinc-200" />
-      <Text className="text-sm text-zinc-500">{label}</Text>
-      <View className="h-px flex-1 bg-zinc-200" />
-    </View>
-  );
-}
-
-// ---------- SCREEN ----------
 export default function SignupScreen() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -91,145 +24,293 @@ export default function SignupScreen() {
   const [showPw, setShowPw] = useState(false);
   const [showPw2, setShowPw2] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  // validaciones
+  const hasMinLen = pw.length >= 8;
+  const hasUpper = /[A-Z]/.test(pw);
+  const hasSymbol = /\W/.test(pw);
+  const pwMatch = pw2 === pw;
 
   const emailError =
-    email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? "Correo inválido" : "";
-  const pwError = pw && pw.length < 8 ? "Mínimo 8 caracteres" : "";
-  const matchError = pw2 && pw2 !== pw ? "Las contraseñas no coinciden" : "";
+    submitted && email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+      ? "Correo inválido"
+      : "";
+  const matchError =
+    submitted && pw2 && !pwMatch ? "Las contraseñas no coinciden" : "";
 
-  const canSubmit = email && pw && pw2 && !emailError && !pwError && !matchError;
+  const canSubmit =
+    email && hasMinLen && hasUpper && hasSymbol && pwMatch && !loading;
 
   async function onSubmit() {
+    setSubmitted(true);
+    if (!canSubmit) return;
     setLoading(true);
     try {
       const res = await mockSignup({ email, password: pw });
       Alert.alert("Éxito", `Usuario creado: ${res.user.email}`);
-      console.log("Registro exitoso:", res);
-      router.push("/auth/login"); // 👈 redirige al login
+      router.push("/auth/login");
     } catch (err) {
-      console.error("Error de registro:", err);
-      Alert.alert("Error", err.message || "Ocurrió un error inesperado");
+      console.error(err);
+      Alert.alert("Error", err.message || "Ocurrió un error");
     } finally {
       setLoading(false);
     }
   }
 
+  const requirements = [
+    { key: "length", label: "Mínimo 8 caracteres", valid: hasMinLen },
+    { key: "upper", label: "Al menos 1 mayúscula", valid: hasUpper },
+    { key: "symbol", label: "Al menos 1 símbolo", valid: hasSymbol },
+  ];
+
+  const keyboardOffset = Platform.select({ ios: 100, android: 80 });
+
+  // Componente Button inline
+  function Button({ children, variant = "primary", onPress, disabled }) {
+    const base = "h-14 w-full rounded-xl items-center justify-center";
+    const style =
+      variant === "outline"
+        ? "border border-zinc-300 bg-white"
+        : "bg-black active:bg-zinc-900";
+    return (
+      <Pressable
+        className={`${base} ${style} ${disabled ? "opacity-70" : ""}`}
+        onPress={onPress}
+        disabled={disabled}
+      >
+        {children}
+      </Pressable>
+    );
+  }
+
+  // Componente Separator inline
+  function Separator({ label = "or" }) {
+    return (
+      <View className="my-6 flex-row items-center">
+        <View className="h-px flex-1 bg-zinc-200" />
+        <Text className="px-3 text-sm text-zinc-500">{label}</Text>
+        <View className="h-px flex-1 bg-zinc-200" />
+      </View>
+    );
+  }
+
   return (
-    <SafeAreaView className="flex-1 bg-white pt-12">
+    <SafeAreaView className="flex-1 bg-white">
       <StatusBar barStyle="dark-content" />
       <KeyboardAvoidingView
         className="flex-1"
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={keyboardOffset}
       >
         <ScrollView
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          contentInsetAdjustmentBehavior="automatic"
           contentContainerStyle={{
             flexGrow: 1,
-            paddingHorizontal: 20,
-            paddingTop: 20,
-            paddingBottom: 28,
+            paddingHorizontal: 24,
+            paddingTop: 32,
+            paddingBottom: 32,
           }}
         >
           <View className="flex-1">
             {/* Header */}
-            <View className="mb-4 flex-row items-center gap-3">
+            <View className="mb-8 flex-row items-center">
               <Image
                 source={{
-                  uri: "https://plus.unsplash.com/premium_photo-1661914978519-52a11fe159a7?q=80&w=735&auto=format&fit=crop&ixlib=rb-4.1.0",
+                  uri:
+                    "https://plus.unsplash.com/premium_photo-1661914978519-52a11fe159a7",
                 }}
-                className="h-12 w-12 rounded-lg"
+                className="h-16 w-16 rounded-lg"
               />
-              <Text className="text-3xl font-bold tracking-tight">Register</Text>
+              <Text className="ml-4 text-4xl font-bold">Register</Text>
             </View>
 
-            <View className="mb-4 h-px w-56 bg-zinc-800" />
-
-            {/* Formulario */}
-            <Field
-              label="Enter your Email"
-              placeholder="correo@ejemplo.com"
-              value={email}
-              onChangeText={setEmail}
-              leftIcon={<AntDesign name="mail" size={18} color="#71717A" />}
-              keyboardType="email-address"
-              error={emailError}
-            />
-            <Field
-              label="Enter your Password"
-              placeholder="****************"
-              value={pw}
-              onChangeText={setPw}
-              secureTextEntry={!showPw}
-              leftIcon={<Feather name="lock" size={18} color="#71717A" />}
-              right={
-                <Pressable
-                  onPress={() => setShowPw((s) => !s)}
-                  accessibilityLabel={showPw ? "Ocultar contraseña" : "Mostrar contraseña"}
-                >
-                  <Feather name={showPw ? "eye-off" : "eye"} size={18} color="#71717A" />
-                </Pressable>
-              }
-              error={pwError}
-            />
-            <Field
-              label="Re-Enter Password"
-              placeholder="****************"
-              value={pw2}
-              onChangeText={setPw2}
-              secureTextEntry={!showPw2}
-              leftIcon={<Feather name="lock" size={18} color="#71717A" />}
-              right={
-                <Pressable
-                  onPress={() => setShowPw2((s) => !s)}
-                  accessibilityLabel={showPw2 ? "Ocultar contraseña" : "Mostrar contraseña"}
-                >
-                  <Feather name={showPw2 ? "eye-off" : "eye"} size={18} color="#71717A" />
-                </Pressable>
-              }
-              error={matchError}
-            />
-
-            {/* CTA */}
-            <View className="mt-2">
-              <Button
-                variant="primary"
-                onPress={onSubmit}
-                className={!canSubmit || loading ? "opacity-70" : ""}
-                disabled={!canSubmit || loading}
+            {/* Email */}
+            <View className="mb-6">
+              <Text className="mb-2 text-base font-medium text-zinc-700">
+                Correo electrónico
+              </Text>
+              <View
+                className={`h-14 w-full flex-row items-center rounded-xl px-4 ${
+                  emailError
+                    ? "border-2 border-red-500"
+                    : "border border-zinc-300"
+                } bg-white`}
               >
-                <Text className="font-semibold text-white">
-                  {loading ? "Loading..." : "Sign Up"}
-                </Text>
-              </Button>
+                <AntDesign
+                  name="mail"
+                  size={20}
+                  color="#71717A"
+                  style={{ marginRight: 12 }}
+                />
+                <TextInput
+                  className="flex-1 text-lg text-zinc-900"
+                  placeholder="correo@ejemplo.com"
+                  placeholderTextColor="#9CA3AF"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+              {!!emailError && (
+                <Text className="mt-1 text-sm text-red-600">{emailError}</Text>
+              )}
             </View>
+
+            {/* Password */}
+            <View className="mb-6">
+              <Text className="mb-2 text-base font-medium text-zinc-700">
+                Contraseña
+              </Text>
+              <View className="h-14 w-full flex-row items-center rounded-xl px-4 border border-zinc-300 bg-white">
+                <Feather
+                  name="lock"
+                  size={20}
+                  color="#71717A"
+                  style={{ marginRight: 12 }}
+                />
+                <TextInput
+                  className="flex-1 text-lg text-zinc-900"
+                  placeholder="••••••••"
+                  placeholderTextColor="#9CA3AF"
+                  value={pw}
+                  onChangeText={setPw}
+                  secureTextEntry={!showPw}
+                  autoCapitalize="none"
+                />
+                <Pressable onPress={() => setShowPw((s) => !s)}>
+                  <Feather
+                    name={showPw ? "eye-off" : "eye"}
+                    size={20}
+                    color="#71717A"
+                  />
+                </Pressable>
+              </View>
+            </View>
+
+            {/* Requisitos */}
+            {submitted && (
+              <View className="mb-6 space-y-2">
+                {requirements.map(({ key, label, valid }) => (
+                  <View
+                    key={key}
+                    className="flex-row items-center"
+                    style={{ gap: 10 }}
+                  >
+                    <View
+                      className={`h-6 w-6 rounded-full items-center justify-center ${
+                        valid ? "bg-green-500" : "bg-red-500"
+                      }`}
+                    >
+                      <Feather
+                        name={valid ? "check" : "x"}
+                        size={14}
+                        color="white"
+                      />
+                    </View>
+                    <Text
+                      className={`text-base ${
+                        valid ? "text-green-700" : "text-red-700"
+                      }`}
+                    >
+                      {label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Confirm Password */}
+            <View className="mb-6">
+              <Text className="mb-2 text-base font-medium text-zinc-700">
+                Repetir contraseña
+              </Text>
+              <View
+                className={`h-14 w-full flex-row items-center rounded-xl px-4 ${
+                  submitted && !pwMatch
+                    ? "border-2 border-red-500"
+                    : "border border-zinc-300"
+                } bg-white`}
+              >
+                <Feather
+                  name="lock"
+                  size={20}
+                  color="#71717A"
+                  style={{ marginRight: 12 }}
+                />
+                <TextInput
+                  className="flex-1 text-lg text-zinc-900"
+                  placeholder="••••••••"
+                  placeholderTextColor="#9CA3AF"
+                  value={pw2}
+                  onChangeText={setPw2}
+                  secureTextEntry={!showPw2}
+                  autoCapitalize="none"
+                />
+                <Pressable onPress={() => setShowPw2((s) => !s)}>
+                  <Feather
+                    name={showPw2 ? "eye-off" : "eye"}
+                    size={20}
+                    color="#71717A"
+                  />
+                </Pressable>
+              </View>
+              {submitted && matchError && (
+                <Text className="mt-1 text-sm text-red-600">{matchError}</Text>
+              )}
+            </View>
+
+            {/* Submit */}
+            <Pressable
+              className={`h-14 w-full rounded-xl items-center justify-center bg-black active:bg-zinc-900 ${
+                !canSubmit ? "opacity-70" : ""
+              }`}
+              onPress={onSubmit}
+              disabled={!canSubmit && submitted}
+            >
+              <Text className="text-lg font-semibold text-white">
+                {loading ? "Registrando..." : "Sign Up"}
+              </Text>
+            </Pressable>
 
             {/* Social */}
-            <Separator label="or" />
-            <View className="gap-3">
-              <Button variant="outline" onPress={() => Alert.alert("Google", "Mock Google login")}>
-                <View className="flex-row items-center justify-center gap-3">
+            <Separator />
+            <View className="gap-3 mb-6">
+              <Button variant="outline" onPress={() => { /* google flow */ }}>
+                <View className="flex-row items-center justify-center gap-3 px-4">
                   <AntDesign name="google" size={20} color="#DB4437" />
-                  <Text className="font-medium text-zinc-900">Continue with Google</Text>
+                  <Text className="font-medium text-zinc-900">
+                    Continue with Google
+                  </Text>
                 </View>
               </Button>
-
-              <Button variant="outline" onPress={() => Alert.alert("Apple", "Mock Apple login")}>
-                <View className="flex-row items-center justify-center gap-3">
+              <Button variant="outline" onPress={() => { /* apple flow */ }}>
+                <View className="flex-row items-center justify-center gap-3 px-4">
                   <AntDesign name="apple1" size={20} color="#000000" />
-                  <Text className="font-medium text-zinc-900">Continue with Apple</Text>
+                  <Text className="font-medium text-zinc-900">
+                    Continue with Apple
+                  </Text>
                 </View>
               </Button>
             </View>
 
-            {/* Legal */}
-            <View className="mt-6">
+            {/* Legal / Link a Login */}
+            <View className="mt-4">
               <Text className="text-center text-xs leading-5 text-zinc-500">
-                By registering, you agree to the <Text className="font-semibold">Terms</Text> and
-                the <Text className="font-semibold">Privacy Policy</Text>.
+                By registering, you agree to the{" "}
+                <Text className="font-semibold">Terms</Text> y la{" "}
+                <Text className="font-semibold">Privacy Policy</Text>.
               </Text>
-              <Pressable className="mt-3" onPress={() => router.push("/auth/login")}>
+              <Pressable
+                className="mt-3"
+                onPress={() => router.push("/auth/login")}
+              >
                 <Text className="text-center text-sm text-zinc-700">
-                  Already have an account? <Text className="font-semibold">Log in</Text>
+                  All ready, have an account?{" "}
+                  <Text className="font-semibold">Log in</Text>
                 </Text>
               </Pressable>
             </View>
