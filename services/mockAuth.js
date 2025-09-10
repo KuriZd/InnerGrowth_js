@@ -5,7 +5,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const db = {
   users: [
     // usuario semilla para probar login inmediato
-    { id: 1, email: "demo@demo.com", password: "password123" },
+    { id: 1, email: "KuriZd@protonmaIL.com", password: "a" },
   ],
 };
 
