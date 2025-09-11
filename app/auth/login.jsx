@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+// app/auth/login.jsx
+
+import React, { useState, useEffect, useRef } from "react";
 import {
   SafeAreaView,
   View,
@@ -10,35 +12,69 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
+  Alert,
+  Animated,
+  Linking,
 } from "react-native";
+import { BlurView } from "expo-blur";
 import { AntDesign, Feather } from "@expo/vector-icons";
 import Checkbox from "expo-checkbox";
 import { useRouter } from "expo-router";
-import { mockLogin } from "../../services/mockAuth";
+import { supabase } from "../../utils/supabase";
 
 export default function LoginScreen() {
   const router = useRouter();
+
+  // form state
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [remember, setRemember] = useState(false);
+
+  // loading flags
+  const [sessionLoading, setSessionLoading] = useState(true);
   const [loading, setLoading] = useState(false);
 
-  // estados de error
-  const [errors, setErrors] = useState({
-    email: "",
-    pw: "",
-    general: "",
-  });
+  // error messages
+  const [errors, setErrors] = useState({ email: "", pw: "", general: "" });
 
+  // spin animation ref
+  const spinAnim = useRef(new Animated.Value(0)).current;
+
+  // start spin animation
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(spinAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      })
+    ).start();
+  }, [spinAnim]);
+
+  // check session & listener
+  useEffect(() => {
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        if (session) router.replace("/main");
+      })
+      .finally(() => setSessionLoading(false));
+
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session) router.replace("/main");
+      }
+    );
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  // email/password login
   async function onLogin() {
-    // reset de errores
     setErrors({ email: "", pw: "", general: "" });
 
-    let hasError = false;
     const newErr = { email: "", pw: "", general: "" };
-
-    // validación de email
+    let hasError = false;
     if (!email) {
       newErr.email = "Ingresa tu email";
       hasError = true;
@@ -46,33 +82,27 @@ export default function LoginScreen() {
       newErr.email = "Dirección de email inválida";
       hasError = true;
     }
-    // validación de contraseña
     if (!pw) {
       newErr.pw = "Ingresa tu contraseña";
       hasError = true;
     }
-
     if (hasError) {
       setErrors(newErr);
       return;
     }
 
     setLoading(true);
-    try {
-      await mockLogin({ email, password: pw, remember });
-      router.replace("/main");
-    } catch (err) {
-      setErrors({
-        email: "",
-        pw: "",
-        general: "Contraseña o dirección de email inválida",
-      });
-    } finally {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password: pw,
+    });
+    if (error) {
+      setErrors({ ...newErr, general: error.message });
       setLoading(false);
     }
   }
 
-  // helper para renderizar un campo
+  // render input field
   function renderField({
     placeholder,
     value,
@@ -85,17 +115,15 @@ export default function LoginScreen() {
   }) {
     const hasError = !!errorMsg;
     return (
-      <View className="w-full mb-2">
+      <View className="w-full mb-3">
         <View
-          className={`
-            h-12 w-full flex-row items-center rounded-lg px-3
-            ${hasError ? "border border-red-500" : "border border-zinc-300"}
-            bg-white
-          `}
+          className={`h-12 flex-row items-center px-3 bg-white rounded-lg ${
+            hasError ? "border border-red-500" : "border border-zinc-300"
+          }`}
         >
           <View className="mr-2">{leftIcon}</View>
           <TextInput
-            className="flex-1 text-lg text-zinc-900"
+            className="flex-1 text-base text-zinc-900"
             placeholder={placeholder}
             placeholderTextColor="#9CA3AF"
             value={value}
@@ -113,9 +141,16 @@ export default function LoginScreen() {
     );
   }
 
+  // spin interpolation
+  const spin = spinAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "360deg"],
+  });
+
   return (
     <SafeAreaView className="flex-1 bg-white pt-10">
       <StatusBar barStyle="dark-content" />
+
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -134,11 +169,14 @@ export default function LoginScreen() {
             <View className="mb-8 flex-row items-center gap-3">
               <Image
                 source={{
-                  uri: "https://plus.unsplash.com/premium_photo-1661914978519-52a11fe159a7?q=80&w=735&auto=format&fit=crop&ixlib=rb-4.1.0",
+                  uri:
+                    "https://plus.unsplash.com/premium_photo-1661914978519-52a11fe159a7?q=80&w=735&auto=format&fit=crop&ixlib=rb-4.1.0",
                 }}
                 className="h-12 w-12 rounded-xl"
               />
-              <Text className="text-3xl font-bold tracking-tight">Ledgerly</Text>
+              <Text className="text-3xl font-bold tracking-tight">
+                Ledgerly
+              </Text>
             </View>
 
             <Text className="text-4xl font-bold mb-2">Login</Text>
@@ -146,14 +184,14 @@ export default function LoginScreen() {
               Let’s keep it quick
             </Text>
 
-            {/* Mensaje general */}
-            {errors.general ? (
+            {/* general error */}
+            {errors.general && (
               <View className="mb-4 px-3 py-2 bg-red-100 border border-red-400 rounded">
                 <Text className="text-red-700">{errors.general}</Text>
               </View>
-            ) : null}
+            )}
 
-            {/* Campos */}
+            {/* fields */}
             {renderField({
               placeholder: "Email Address",
               value: email,
@@ -163,7 +201,6 @@ export default function LoginScreen() {
               keyboardType: "email-address",
               errorMsg: errors.email,
             })}
-
             {renderField({
               placeholder: "Password",
               value: pw,
@@ -179,10 +216,11 @@ export default function LoginScreen() {
                   />
                 </Pressable>
               ),
+              keyboardType: "default",
               errorMsg: errors.pw,
             })}
 
-            {/* Remember & Forgot */}
+            {/* remember / forgot */}
             <View className="mb-6 flex-row items-center justify-between">
               <View className="flex-row items-center gap-2">
                 <Checkbox
@@ -194,7 +232,7 @@ export default function LoginScreen() {
               </View>
               <Pressable
                 onPress={() =>
-                  Alert.alert("Forgot password", "Flujo mock no implementado")
+                  Alert.alert("Forgot password", "Flujo no implementado")
                 }
               >
                 <Text className="text-sm font-semibold text-zinc-900">
@@ -203,7 +241,7 @@ export default function LoginScreen() {
               </Pressable>
             </View>
 
-            {/* Botón */}
+            {/* Sign in */}
             <Pressable
               className={`h-12 w-full rounded-lg items-center justify-center bg-black active:bg-zinc-900 ${
                 loading ? "opacity-70" : ""
@@ -216,18 +254,30 @@ export default function LoginScreen() {
               </Text>
             </Pressable>
 
-            {/* Separator */}
+            {/* separator */}
             <View className="my-6 flex-row items-center gap-3">
               <View className="h-px flex-1 bg-zinc-200" />
               <Text className="text-sm text-zinc-500">or</Text>
               <View className="h-px flex-1 bg-zinc-200" />
             </View>
 
-            {/* Social */}
+            {/* OAuth buttons */}
             <View className="gap-3">
+              {/* Google */}
               <Pressable
                 className="h-12 w-full rounded-lg border border-zinc-300 bg-white items-center justify-center"
-                onPress={() => Alert.alert("Google", "Mock Google login")}
+                onPress={async () => {
+                  const { data, error } =
+                    await supabase.auth.signInWithOAuth({
+                      provider: "google",
+                      //options: { redirectTo: "https://tbivbrfuuyithnzoxuro.supabase.co/auth/v1/callback" },
+                    });
+                  if (error) {
+                    Alert.alert("Google Sign-In error", error.message);
+                  } else if (data?.url) {
+                    await Linking.openURL(data.url);
+                  }
+                }}
               >
                 <View className="flex-row items-center justify-center gap-3">
                   <AntDesign name="google" size={20} color="#DB4437" />
@@ -236,9 +286,21 @@ export default function LoginScreen() {
                   </Text>
                 </View>
               </Pressable>
+
+              {/* Apple */}
               <Pressable
                 className="h-12 w-full rounded-lg border border-zinc-300 bg-white items-center justify-center"
-                onPress={() => Alert.alert("Apple", "Mock Apple login")}
+                onPress={async () => {
+                  const { data, error } =
+                    await supabase.auth.signInWithOAuth({
+                      provider: "apple",
+                    });
+                  if (error) {
+                    Alert.alert("Apple Sign-In error", error.message);
+                  } else if (data?.url) {
+                    await Linking.openURL(data.url);
+                  }
+                }}
               >
                 <View className="flex-row items-center justify-center gap-3">
                   <AntDesign name="apple1" size={20} color="#000" />
@@ -249,7 +311,7 @@ export default function LoginScreen() {
               </Pressable>
             </View>
 
-            {/* Footer */}
+            {/* footer */}
             <View className="mt-8">
               <Text className="text-center text-base text-zinc-700">
                 Don’t have an account?{" "}
@@ -264,6 +326,18 @@ export default function LoginScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* blur + spinning loader overlay */}
+      {(sessionLoading || loading) && (
+        <BlurView intensity={60} className="absolute inset-0">
+          <View className="flex-1 justify-center items-center">
+            <Animated.View
+              style={{ transform: [{ rotate: spin }] }}
+              className="w-12 h-12 border-4 border-black border-t-transparent border-r-transparent rounded-full"
+            />
+          </View>
+        </BlurView>
+      )}
     </SafeAreaView>
   );
 }

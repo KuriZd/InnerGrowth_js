@@ -1,3 +1,5 @@
+// app/auth/signup.jsx
+
 import React, { useState } from "react";
 import {
   SafeAreaView,
@@ -14,7 +16,8 @@ import {
 } from "react-native";
 import { AntDesign, Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { mockSignup } from "../../services/mockAuth";
+import * as Linking from "expo-linking";
+import { supabase } from "../../utils/supabase";
 
 export default function SignupScreen() {
   const router = useRouter();
@@ -26,7 +29,7 @@ export default function SignupScreen() {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  // validaciones
+  // validations
   const hasMinLen = pw.length >= 8;
   const hasUpper = /[A-Z]/.test(pw);
   const hasSymbol = /\W/.test(pw);
@@ -42,58 +45,48 @@ export default function SignupScreen() {
   const canSubmit =
     email && hasMinLen && hasUpper && hasSymbol && pwMatch && !loading;
 
-  async function onSubmit() {
-    setSubmitted(true);
-    if (!canSubmit) return;
-    setLoading(true);
-    try {
-      const res = await mockSignup({ email, password: pw });
-      Alert.alert("Éxito", `Usuario creado: ${res.user.email}`);
-      router.push("/auth/login");
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Error", err.message || "Ocurrió un error");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   const requirements = [
     { key: "length", label: "Mínimo 8 caracteres", valid: hasMinLen },
     { key: "upper", label: "Al menos 1 mayúscula", valid: hasUpper },
     { key: "symbol", label: "Al menos 1 símbolo", valid: hasSymbol },
   ];
 
+  async function onSubmit() {
+    setSubmitted(true);
+    if (!canSubmit) return;
+
+    setLoading(true);
+    // Supabase sign-up
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password: pw,
+    });
+    setLoading(false);
+
+    if (error) {
+      Alert.alert("Error al registrar", error.message);
+    } else {
+      Alert.alert(
+        "¡Éxito!",
+        "Revisa tu correo para verificar tu cuenta.",
+        [{ text: "OK", onPress: () => router.replace("/auth/login") }]
+      );
+    }
+  }
+
+  async function handleOAuth(provider) {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider,
+      // options: { redirectTo: "ledgerly://login-callback" }
+    });
+    if (error) {
+      Alert.alert(`${provider} Sign-In error`, error.message);
+    } else if (data?.url) {
+      Linking.openURL(data.url);
+    }
+  }
+
   const keyboardOffset = Platform.select({ ios: 100, android: 80 });
-
-  // Componente Button inline
-  function Button({ children, variant = "primary", onPress, disabled }) {
-    const base = "h-14 w-full rounded-xl items-center justify-center";
-    const style =
-      variant === "outline"
-        ? "border border-zinc-300 bg-white"
-        : "bg-black active:bg-zinc-900";
-    return (
-      <Pressable
-        className={`${base} ${style} ${disabled ? "opacity-70" : ""}`}
-        onPress={onPress}
-        disabled={disabled}
-      >
-        {children}
-      </Pressable>
-    );
-  }
-
-  // Componente Separator inline
-  function Separator({ label = "or" }) {
-    return (
-      <View className="my-6 flex-row items-center">
-        <View className="h-px flex-1 bg-zinc-200" />
-        <Text className="px-3 text-sm text-zinc-500">{label}</Text>
-        <View className="h-px flex-1 bg-zinc-200" />
-      </View>
-    );
-  }
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -106,7 +99,6 @@ export default function SignupScreen() {
         <ScrollView
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
-          contentInsetAdjustmentBehavior="automatic"
           contentContainerStyle={{
             flexGrow: 1,
             paddingHorizontal: 24,
@@ -191,7 +183,7 @@ export default function SignupScreen() {
               </View>
             </View>
 
-            {/* Requisitos */}
+            {/* Requirements */}
             {submitted && (
               <View className="mb-6 space-y-2">
                 {requirements.map(({ key, label, valid }) => (
@@ -276,32 +268,38 @@ export default function SignupScreen() {
               </Text>
             </Pressable>
 
-            {/* Social */}
-            <Separator />
-            <View className="gap-3 mb-6">
-              <Button variant="outline" onPress={() => { /* google flow */ }}>
-                <View className="flex-row items-center justify-center gap-3 px-4">
+            {/* OAuth buttons */}
+            <View className="gap-3 mt-6">
+              <Pressable
+                className="h-12 w-full rounded-lg border border-zinc-300 bg-white items-center justify-center"
+                onPress={() => handleOAuth("google")}
+              >
+                <View className="flex-row items-center justify-center gap-3">
                   <AntDesign name="google" size={20} color="#DB4437" />
-                  <Text className="font-medium text-zinc-900">
-                    Continue with Google
+                  <Text className="font-medium text-zinc-900 text-lg">
+                    Continuar con Google
                   </Text>
                 </View>
-              </Button>
-              <Button variant="outline" onPress={() => { /* apple flow */ }}>
-                <View className="flex-row items-center justify-center gap-3 px-4">
-                  <AntDesign name="apple1" size={20} color="#000000" />
-                  <Text className="font-medium text-zinc-900">
-                    Continue with Apple
+              </Pressable>
+
+              <Pressable
+                className="h-12 w-full rounded-lg border border-zinc-300 bg-white items-center justify-center"
+                onPress={() => handleOAuth("apple")}
+              >
+                <View className="flex-row items-center justify-center gap-3">
+                  <AntDesign name="apple1" size={20} color="#000" />
+                  <Text className="font-medium text-zinc-900 text-lg">
+                    Continuar con Apple
                   </Text>
                 </View>
-              </Button>
+              </Pressable>
             </View>
 
             {/* Legal / Link a Login */}
-            <View className="mt-4">
+            <View className="mt-6">
               <Text className="text-center text-xs leading-5 text-zinc-500">
                 By registering, you agree to the{" "}
-                <Text className="font-semibold">Terms</Text> y la{" "}
+                <Text className="font-semibold">Terms</Text> and{" "}
                 <Text className="font-semibold">Privacy Policy</Text>.
               </Text>
               <Pressable
@@ -309,7 +307,7 @@ export default function SignupScreen() {
                 onPress={() => router.push("/auth/login")}
               >
                 <Text className="text-center text-sm text-zinc-700">
-                  All ready, have an account?{" "}
+                  Already have an account?{" "}
                   <Text className="font-semibold">Log in</Text>
                 </Text>
               </Pressable>
