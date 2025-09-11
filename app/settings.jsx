@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   SafeAreaView,
   View,
@@ -7,8 +7,13 @@ import {
   Image,
   Switch,
   ScrollView,
+  Alert,
 } from "react-native";
 import { Feather, AntDesign, MaterialIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
+import { supabase } from "../utils/supabase";
 
 function SettingItem({ icon, label, onPress, danger }) {
   return (
@@ -24,7 +29,11 @@ function SettingItem({ icon, label, onPress, danger }) {
           {label}
         </Text>
       </View>
-      <Feather name="chevron-right" size={20} color={danger ? "#dc2626" : "#6b7280"} />
+      <Feather
+        name="chevron-right"
+        size={20}
+        color={danger ? "#dc2626" : "#6b7280"}
+      />
     </Pressable>
   );
 }
@@ -42,7 +51,35 @@ function SettingSwitch({ icon, label, value, onValueChange }) {
 }
 
 export default function SettingsScreen() {
-  const [haptics, setHaptics] = useState(true);
+  const [hapticsEnabled, setHapticsEnabled] = useState(false);
+  const router = useRouter();
+
+  // Carga el valor guardado al iniciar
+  useEffect(() => {
+    AsyncStorage.getItem("hapticsEnabled").then((val) => {
+      if (val !== null) setHapticsEnabled(val === "true");
+    });
+  }, []);
+
+  // Guarda y dispara un toque ligero cuando se cambia
+  const toggleHaptics = async (value) => {
+    setHapticsEnabled(value);
+    await AsyncStorage.setItem("hapticsEnabled", value.toString());
+    if (value) {
+      Haptics.selectionAsync();
+    }
+  };
+
+  // Función de logout: cierra sesión en supabase, limpia AsyncStorage y redirige a Login
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      Alert.alert("Error al cerrar sesión", error.message);
+      return;
+    }
+    await AsyncStorage.clear();
+    router.replace("/");
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -66,46 +103,62 @@ export default function SettingsScreen() {
         <SettingItem
           icon={<Feather name="user" size={20} color="#111" />}
           label="Edit Profile"
-          onPress={() => {}}
+          onPress={() => router.push("/settings/edit-profile")}
         />
         <SettingItem
           icon={<Feather name="help-circle" size={20} color="#111" />}
           label="Help"
-          onPress={() => {}}
+          onPress={() => router.push("/settings/help")}
         />
         <SettingItem
           icon={<AntDesign name="earth" size={20} color="#111" />}
           label="Language Settings"
-          onPress={() => {}}
+          onPress={() => router.push("/settings/language")}
         />
         <SettingItem
           icon={<Feather name="lock" size={20} color="#111" />}
           label="Authentication"
-          onPress={() => {}}
+          onPress={() => router.push("/settings/auth")}
         />
         <SettingItem
           icon={<Feather name="bell" size={20} color="#111" />}
           label="Notifications"
-          onPress={() => {}}
+          onPress={() => router.push("/settings/notifications")}
         />
         <SettingItem
-          icon={<MaterialIcons name="delete-outline" size={22} color="#dc2626" />}
+          icon={
+            <MaterialIcons name="delete-outline" size={22} color="#dc2626" />
+          }
           label="Delete Account"
           danger
-          onPress={() => {}}
+          onPress={() => Alert.alert(
+            "Eliminar cuenta",
+            "¿Estás seguro de que quieres eliminar tu cuenta? Esta acción no se puede deshacer.",
+            [
+              { text: "Cancelar", style: "cancel" },
+              {
+                text: "Eliminar",
+                style: "destructive",
+                onPress: () => {
+                  // llamada a la API para borrar cuenta
+                  Alert.alert("Cuenta eliminada", "Tu cuenta ha sido eliminada.");
+                },
+              },
+            ]
+          )}
         />
 
         <SettingSwitch
           icon={<Feather name="smartphone" size={20} color="#111" />}
           label="Haptic feedback"
-          value={haptics}
-          onValueChange={setHaptics}
+          value={hapticsEnabled}
+          onValueChange={toggleHaptics}
         />
 
         <SettingItem
           icon={<Feather name="log-out" size={20} color="#111" />}
           label="Log out"
-          onPress={() => {}}
+          onPress={handleLogout}
         />
       </ScrollView>
     </SafeAreaView>
