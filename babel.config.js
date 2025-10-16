@@ -11,7 +11,9 @@ module.exports = function (api) {
         path: ".env",
         safe: false,
         allowUndefined: true
-      }]
-    ]
+      }],
+      // Reanimated ahora usa el plugin desde react-native-worklets
+      "react-native-worklets/plugin",
+    ],
   };
 };

@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import {
-  SafeAreaView,
   View,
   Text,
   TextInput,
@@ -16,10 +15,12 @@ import {
   Animated,
   Linking,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import { AntDesign, Feather } from "@expo/vector-icons";
 import Checkbox from "expo-checkbox";
 import { useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import { supabase } from "../../utils/supabase";
 
 export default function LoginScreen() {
@@ -30,6 +31,9 @@ export default function LoginScreen() {
   const [pw, setPw] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [remember, setRemember] = useState(false);
+
+  // cred loading flag
+  const [credsLoaded, setCredsLoaded] = useState(false);
 
   // loading flags
   const [sessionLoading, setSessionLoading] = useState(true);
@@ -69,8 +73,31 @@ export default function LoginScreen() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
+  // load saved credentials on mount
+  useEffect(() => {
+    async function loadCreds() {
+      try {
+        const savedEmail = await SecureStore.getItemAsync("email");
+        const savedPw = await SecureStore.getItemAsync("password");
+        if (savedEmail && savedPw) {
+          setEmail(savedEmail);
+          setPw(savedPw);
+          setRemember(true);
+        }
+      } catch (err) {
+        console.warn("Error loading credentials:", err);
+      } finally {
+        setCredsLoaded(true);
+      }
+    }
+    loadCreds();
+  }, []);
+
   // email/password login
   async function onLogin() {
+    // evita login antes de cargar credenciales
+    if (!credsLoaded) return;
+
     setErrors({ email: "", pw: "", general: "" });
 
     const newErr = { email: "", pw: "", general: "" };
@@ -99,6 +126,20 @@ export default function LoginScreen() {
     if (error) {
       setErrors({ ...newErr, general: error.message });
       setLoading(false);
+    } else {
+      // login exitoso → guardamos o borramos credenciales
+      try {
+        if (remember) {
+          await SecureStore.setItemAsync("email", email);
+          await SecureStore.setItemAsync("password", pw);
+        } else {
+          await SecureStore.deleteItemAsync("email");
+          await SecureStore.deleteItemAsync("password");
+        }
+      } catch (err) {
+        console.warn("Error saving credentials:", err);
+      }
+      // el listener de onAuthStateChange redirigirá a /main
     }
   }
 
@@ -270,7 +311,6 @@ export default function LoginScreen() {
                   const { data, error } =
                     await supabase.auth.signInWithOAuth({
                       provider: "google",
-                      //options: { redirectTo: "https://tbivbrfuuyithnzoxuro.supabase.co/auth/v1/callback" },
                     });
                   if (error) {
                     Alert.alert("Google Sign-In error", error.message);
@@ -303,7 +343,7 @@ export default function LoginScreen() {
                 }}
               >
                 <View className="flex-row items-center justify-center gap-3">
-                  <AntDesign name="apple1" size={20} color="#000" />
+                  <AntDesign name="apple" size={20} color="#000" />
                   <Text className="font-medium text-zinc-900 text-lg">
                     Continuar con Apple
                   </Text>

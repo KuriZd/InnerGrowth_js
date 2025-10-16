@@ -1,8 +1,8 @@
 // app/home.jsx
 import React, { useMemo, useState } from "react";
-import { SafeAreaView, View, Text, Pressable, Image } from "react-native";
+import { View, Text, Pressable, Image } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather, AntDesign } from "@expo/vector-icons";
-import DayCalendar from "../components/calendar";
 import BottomNav from "../components/BottomNav";
 
 // util: normaliza eventos a objetos {type,label}
@@ -43,7 +43,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView className="flex-1 bg-white">
       {/* Header */}
-      <View className="flex-row items-center justify-between px-5 pt-6">
+      <View className="flex-row items-center justify-between px-5 mt-10">
         <Pressable className="active:opacity-80">
           <Image
             source={{
@@ -59,23 +59,7 @@ export default function HomeScreen() {
       </View>
 
       {/* Calendario */}
-      <DayCalendar
-        // ✅ conecta con tu estado
-        selectedDate={selectedDate}
-        onChange={setSelectedDate}
-        locale="es"
-        // ✅ ya normalizado a {type,label}
-        events={events}
-        // ✅ colores por tipo
-        eventColorMap={{
-          important: "#ef4444", // rojo
-          normal: "#10b981",    // verde
-          reminder: "#3b82f6",  // azul
-          other: "#a855f7",     // violeta
-        }}
-        // opcional: mostrar hasta 3 marcadores
-        maxMarkers={3}
-      />
+      
 
       {/* Contenido */}
       <View className="flex-1 items-center justify-center px-6">

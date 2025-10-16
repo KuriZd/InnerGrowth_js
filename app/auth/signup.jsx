@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import {
-  SafeAreaView,
   View,
   Text,
   TextInput,
@@ -14,6 +13,7 @@ import {
   StatusBar,
   Alert,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { AntDesign, Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Linking from "expo-linking";
@@ -287,7 +287,7 @@ export default function SignupScreen() {
                 onPress={() => handleOAuth("apple")}
               >
                 <View className="flex-row items-center justify-center gap-3">
-                  <AntDesign name="apple1" size={20} color="#000" />
+                  <AntDesign name="apple" size={20} color="#000" />
                   <Text className="font-medium text-zinc-900 text-lg">
                     Continuar con Apple
                   </Text>

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import {
-  SafeAreaView,
   View,
   Text,
   Pressable,
@@ -9,11 +8,13 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather, AntDesign, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { supabase } from "../utils/supabase";
+import BottomNav from "../components/BottomNav";
 
 function SettingItem({ icon, label, onPress, danger }) {
   return (
@@ -70,6 +71,15 @@ export default function SettingsScreen() {
     }
   };
 
+  // 👇 Items de la barra
+  const navItems = [
+    { key: "profile", label: "Profile", icon: "user", href: "/profile" },
+    { key: "todo", label: "To Do", icon: "check-square", href: "/todo" },
+    { key: "home", label: "Home", icon: "home", href: "/main" },
+    { key: "break", label: "Break", icon: "coffee", href: "/break" },
+    { key: "config", label: "Config", icon: "settings", href: "/settings" },
+  ];
+
   // Función de logout: cierra sesión en supabase, limpia AsyncStorage y redirige a Login
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -82,19 +92,19 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white ">
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 24 }}
       >
         {/* Header */}
-        <View className="items-center mb-8">
+        <View className="flex-row items-center gap-4 mb-8 mt-20">
           <Image
             source={{
               uri: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=764&auto=format&fit=crop&ixlib=rb-4.1.0",
             }}
-            className="h-20 w-20 rounded-full mb-3"
+            className="h-16 w-16 rounded-full mb-3"
           />
-          <Text className="text-lg font-semibold text-zinc-800">
+          <Text className="text-2xl font-semibold text-zinc-800">
             Monsterrat Herrera
           </Text>
         </View>
@@ -103,7 +113,7 @@ export default function SettingsScreen() {
         <SettingItem
           icon={<Feather name="user" size={20} color="#111" />}
           label="Edit Profile"
-          onPress={() => router.push("/settings/edit-profile")}
+          onPress={() => router.push("mysettings/viewProfile")}
         />
         <SettingItem
           icon={<Feather name="help-circle" size={20} color="#111" />}
@@ -111,7 +121,7 @@ export default function SettingsScreen() {
           onPress={() => router.push("/settings/help")}
         />
         <SettingItem
-          icon={<AntDesign name="earth" size={20} color="#111" />}
+          icon={<AntDesign name="global" size={20} color="#111" />}
           label="Language Settings"
           onPress={() => router.push("/settings/language")}
         />
@@ -161,6 +171,8 @@ export default function SettingsScreen() {
           onPress={handleLogout}
         />
       </ScrollView>
+      {/* Barra de navegación abajo */}
+      <BottomNav items={navItems} />
     </SafeAreaView>
   );
 }

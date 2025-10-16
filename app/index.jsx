@@ -2,7 +2,6 @@
 
 import React from "react";
 import {
-  SafeAreaView,
   View,
   Text,
   Image,
@@ -10,10 +9,12 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { AntDesign } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Linking from "expo-linking";
 import { supabase } from "../utils/supabase";
+import '../styles/global.css';
 
 function Button({ variant = "primary", children, className = "", ...props }) {
   const styles = {
@@ -115,7 +116,7 @@ export default function AuthScreen() {
               onPress={() => handleOAuth("apple")}
             >
               <View className="flex-row items-center justify-center gap-3">
-                <AntDesign name="apple1" size={20} color="#000" />
+                <AntDesign name="apple" size={20} color="#000" />
                 <Text className="font-medium text-zinc-900 text-lg">
                   Continuar con Apple
                 </Text>
